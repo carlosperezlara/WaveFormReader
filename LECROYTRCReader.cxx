@@ -183,9 +183,12 @@ void LECROYTRCReader::ReadHeader() {
   cout << "samples: " << fSamples << " || waves: " << fNumberOfEvents << endl;
   if(fTrace[0]) delete fTrace[0];
   if(fAll[0]) delete fAll[0];
-
-  fTrace[0] = new TH1D("fTrace","fTrace;s;V",fSamples,horizoffset,fSamples*horizinterval+horizoffset);
-  fAll[0] = new TH2D("fAll","fAll;s;V",100,horizoffset,fSamples*horizinterval + horizoffset, 100, minV, maxV);
+  horizoffset *=1e9;
+  horizinterval *=1e9;
+  minV *= 1e3;
+  maxV *= 1e3;
+  fTrace[0] = new TH1D("fTrace0",Form("Trace0  %s;ns;mV",fFileName.Data()),fSamples,horizoffset,fSamples*horizinterval+horizoffset);
+  fAll[0] = new TH2D("fSummary0",Form("Summary0  %s;ns;mV",fFileName.Data()),100,horizoffset,fSamples*horizinterval + horizoffset, 100, minV, maxV);
   ResetReading();
 }
 //=======
@@ -196,21 +199,22 @@ bool LECROYTRCReader::ReadEvent() {
   }
   Char_t  charsize1;   // byte
   Short_t shortsize2;  // int16 word
-  Double_t V,s;
+  Double_t mV,ns;
   for(int i=0; i!=fSamples; ++i) {
     if( fSize==1 ) { //16bit packet
       fIFS.read((char*) &shortsize2, 2); // pack
-      V = shortsize2*fGain + fOffset;
+      mV = shortsize2*fGain + fOffset;
     } else { // 8bit packet
       fIFS.read((char*) &charsize1, 1); // pack
-      V = charsize1*fGain + fOffset;
+      mV = charsize1*fGain + fOffset;
     }
+    mV *= 1e3;
     if ( (fIFS.rdstate() & std::ifstream::eofbit ) != 0 )
       return false;
     //std::cout << i << " "<< shortsize2 << " " << mV << endl;
-    fTrace[0]->SetBinContent(i+1,V);
-    s = fTrace[0]->GetXaxis()->GetBinCenter( i+1 );
-    fAll[0]->Fill(s,V);
+    fTrace[0]->SetBinContent(i+1,mV);
+    ns = fTrace[0]->GetXaxis()->GetBinCenter( i+1 );
+    fAll[0]->Fill(ns,mV);
   }
   return true;
 }
