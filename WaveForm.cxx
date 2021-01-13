@@ -164,8 +164,12 @@ void WaveForm::LocalExtreme(Int_t binMin, Int_t binMax, Double_t &ampl, Int_t &t
   if(!Positive) ampl = 1e16;
   for(int i=binMin; i!=binMax; ++i) {
     double val = this->GetBinContent(i);
-    bool accept = (val>ampl);
-    if(!Positive&&!accept) accept = true;
+    bool accept = false;
+    if(Positive) {
+      accept = (val>ampl);
+    } else {
+      accept = (val<ampl);
+    }
     if(accept) {
       ampl = val;
       time = i;
