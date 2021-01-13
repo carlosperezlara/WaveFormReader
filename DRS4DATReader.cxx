@@ -78,7 +78,7 @@ void DRS4DATReader::ReadHeader() {
       }
       if(fTrace[fNumberOfChannels]) delete fTrace[fNumberOfChannels];
       if(fAll[fNumberOfChannels]) delete fAll[fNumberOfChannels];
-      fTrace[fNumberOfChannels] = new TH1D(Form("DRS4CH%d",fNumberOfChannels),"DRS4;s;V", fSamples, tch[0], endtime);
+      fTrace[fNumberOfChannels] = new WaveForm(Form("DRS4CH%d",fNumberOfChannels),"DRS4;s;V", fSamples, tch[0], endtime);
       fAll[fNumberOfChannels] = new TH2D(Form("DRS4SumCH%d",fNumberOfChannels),"DRS4;s;V", 100, tch[0], endtime, 100, -50, +50);
       fNumberOfChannels++;
     }

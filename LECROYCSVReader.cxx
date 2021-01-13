@@ -6,6 +6,7 @@
 #include "TH1D.h"
 #include "TH2D.h"
 #include "Reader.cxx"
+#include "WaveForm.cxx"
 
 /*=====================
 Reader for TRC: Lecroy binary files
@@ -66,7 +67,7 @@ void LECROYCSVReader::ReadHeader() {
   double maxX = lineLast.Atof()*1e9;
   if(fTrace[0]) delete fTrace[0];
   if(fAll[0]) delete fAll[0];
-  fTrace[0] = new TH1D("LECROYCH","LECROY;ns;mV", fSamples, minX, maxX );
+  fTrace[0] = new WaveForm("LECROYCH","LECROY;ns;mV", fSamples, minX, maxX );
   fAll[0] = new TH2D("LECROYSumCH","LECROY;ns;mV",100,minX,maxX, 100, -50, 50);
   ResetReading();
   cout << "NumberOfEvents " << fNumberOfEvents << endl;

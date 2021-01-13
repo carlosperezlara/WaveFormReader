@@ -6,6 +6,7 @@
 #include "TH1D.h"
 #include "TH2D.h"
 #include "Reader.cxx"
+#include "WaveForm.cxx"
 
 /*=====================
 Reader for TRC: Lecroy binary files
@@ -187,7 +188,7 @@ void LECROYTRCReader::ReadHeader() {
   horizinterval *=1e9;
   minV *= 1e3;
   maxV *= 1e3;
-  fTrace[0] = new TH1D("fTrace0",Form("Trace0  %s;ns;mV",fFileName.Data()),fSamples,horizoffset,fSamples*horizinterval+horizoffset);
+  fTrace[0] = new WaveForm("fTrace0",Form("Trace0  %s;ns;mV",fFileName.Data()),fSamples,horizoffset,fSamples*horizinterval+horizoffset);
   fAll[0] = new TH2D("fSummary0",Form("Summary0  %s;ns;mV",fFileName.Data()),100,horizoffset,fSamples*horizinterval + horizoffset, 100, minV, maxV);
   ResetReading();
 }

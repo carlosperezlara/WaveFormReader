@@ -1,3 +1,6 @@
+#ifndef __WAVEFORM__
+#define __WAVEFORM__
+
 class WaveForm : public TH1D {
  public:
   WaveForm(TString,TString,Int_t,Double_t,Double_t);
@@ -170,3 +173,5 @@ void WaveForm::LocalExtreme(Int_t binMin, Int_t binMax, Double_t &ampl, Int_t &t
   }
   return;
 }
+
+#endif

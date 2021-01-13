@@ -5,7 +5,7 @@
 #include "TString.h"
 #include "TH1D.h"
 #include "TH2D.h"
-
+#include "WaveForm.cxx"
 
 const Int_t kMAXCHANNELS=4;
 
@@ -16,7 +16,7 @@ public:
   virtual void  ReadHeader()=0;
   virtual bool  ReadEvent()=0;
   void  ResetReading();
-  TH1D* GetTrace(Int_t i=0) {return i<kMAXCHANNELS?fTrace[i]:NULL;}
+  WaveForm* GetTrace(Int_t i=0) {return i<kMAXCHANNELS?fTrace[i]:NULL;}
   TH2D* GetSummaryPlot(Int_t i=0) {return i<kMAXCHANNELS?fAll[i]:NULL;}
 
 protected:
@@ -25,7 +25,7 @@ protected:
   Int_t    fStart;
   Int_t    fSamples;
 
-  TH1D    *fTrace[kMAXCHANNELS];
+  WaveForm    *fTrace[kMAXCHANNELS];
   TH2D    *fAll[kMAXCHANNELS];
 };
 //=======
