@@ -93,6 +93,7 @@ bool LECROYCSVReader::ReadEvent() {
     fTrace[0]->SetBinContent(i+1,iv);
     fAll[0]->Fill( ix, iv );
   }
+  fTrace[0]->NonFitted();
   return true;
 }
 

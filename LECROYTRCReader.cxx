@@ -217,6 +217,7 @@ bool LECROYTRCReader::ReadEvent() {
     ns = fTrace[0]->GetXaxis()->GetBinCenter( i+1 );
     fAll[0]->Fill(ns,mV);
   }
+  fTrace[0]->NonFitted();
   return true;
 }
 

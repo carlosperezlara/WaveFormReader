@@ -152,6 +152,7 @@ bool DRS4DATReader::ReadEvent() {
 	ns = fTrace[ich]->GetXaxis()->GetBinCenter(isa+1);
 	fAll[ich]->Fill(ns,mV);
       }
+      fTrace[ich]->NonFitted();
       ich++;
       if(ich>=fNumberOfChannels) break; // needed for last event (?)
     }

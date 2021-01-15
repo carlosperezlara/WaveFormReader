@@ -1,5 +1,8 @@
 #ifndef __WAVEFORM__
 #define __WAVEFORM__
+#include "TH1D.h"
+#include "TProfile.h"
+#include "TString.h"
 
 class WaveForm : public TH1D {
  public:
@@ -11,7 +14,8 @@ class WaveForm : public TH1D {
   void ComputeMax(Int_t binMin, Int_t binMax, Double_t &ampl, Int_t &time);
   void ComputeMin(Int_t binMin, Int_t binMax, Double_t &ampl, Int_t &time);
   void ComputeCentroid(Int_t binMin, Int_t binMax, Double_t &mean, Double_t &rms);
-
+  void NonFitted() {fFitted=kFALSE;}
+  
   // based on template
   void LoadTemplate(TString filename);
   Double_t FitTemplate(Double_t p0, Double_t p1, Double_t p2);
@@ -23,6 +27,12 @@ class WaveForm : public TH1D {
   
   // active methods: modifies data in some way
   void Subtract(Double_t ped);
+
+  // profiling
+  TProfile* CreateProfile();
+  TProfile* GetProfile() {return fProfile;}
+  void FillProfile();
+  void SaveProfileToTemplate(TString filename);
   
  private:
   // helpers
@@ -33,19 +43,59 @@ class WaveForm : public TH1D {
   // datamembers
   TSpline3 *fPulse;
   TF1 *fFit;
+  Bool_t fFitted;
   Double_t fTemplate_HeightToCharge;
+  TProfile *fProfile;
 };
 
 //====================================
-WaveForm::WaveForm(TString name, TString title, Int_t bins , Double_t minX, Double_t maxX) : TH1D(name,title,bins,minX,maxX),
+WaveForm::WaveForm(TString name, TString title, Int_t bins , Double_t minX, Double_t maxX) :
+  TH1D(name,title,bins,minX,maxX),
   fPulse(NULL),
   fFit(NULL),
-  fTemplate_HeightToCharge(1) {
+  fFitted(kFALSE),
+  fTemplate_HeightToCharge(1),
+  fProfile(NULL) {
 }
 //====================================
 WaveForm::~WaveForm() {
   if(fPulse) delete fPulse;
   if(fFit) delete fFit;
+  if(fProfile) delete fProfile;
+}
+//====================================
+TProfile* WaveForm::CreateProfile() {
+  if(fProfile) return fProfile;
+  fProfile = new TProfile( Form("%s_pX",GetName()), Form("%s (PX)",GetTitle()), GetNbinsX(), GetBinLowEdge(1), GetBinLowEdge(GetNbinsX()+1) );
+  return fProfile;
+}
+//====================================
+void WaveForm::FillProfile() {
+  if(!fProfile) CreateProfile();
+  // FillProfile with either the trace raw data
+  // or, if available, the fitted template
+  // WARNING call this AFTER fitting
+  if(fFitted) {
+    for(Int_t bin = 0; bin!=GetNbinsX(); ++bin) {
+      double x = GetBinCenter(bin+1);
+      double fromPulse = fFit->Eval(x);
+      fProfile->Fill( x, fromPulse );
+    }
+  } else {
+    for(Int_t bin = 0; bin!=GetNbinsX(); ++bin) {
+      fProfile->Fill( GetBinCenter(bin+1), GetBinContent(bin+1) );
+    }
+  }
+}
+//====================================
+void WaveForm::SaveProfileToTemplate(TString filename) {
+  if(!fProfile) return;
+  Double_t scale = 1.0/abs(fProfile->GetMinimum());
+  ofstream fout( filename.Data() );
+  for(Int_t bin = 0; bin!=GetNbinsX(); ++bin) {
+    fout <<  Form("%e %e", GetBinCenter(bin+1), GetBinContent(bin+1)*scale ) << endl;
+  }
+  fout.close();
 }
 //====================================
 void WaveForm::ComputeCentroid(Int_t binMin, Int_t binMax, Double_t &mean, Double_t &rms) {
@@ -85,6 +135,7 @@ Double_t WaveForm::FitTemplate(Double_t p0, Double_t p1, Double_t p2) {
   fFit->SetParameters(p0,p1,p2);
   this->Fit(fFit,"WWQ");
   this->Fit(fFit,"WWQ");
+  fFitted = kTRUE;
   return GetLastReducedChiSquared();
 }
 //====================================
