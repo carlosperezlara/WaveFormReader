@@ -82,6 +82,7 @@ int readfile_ComputeGain(TString filename="C2--4Layer-43--00000.trc",
   for(int i=0; i!=100; ++i) hExample[i] = NULL;
 
   TList *list = new TList();
+  list->SetName("AcceptedFitExamples");
   list->SetOwner();
   
   Int_t nSinglesTraces = 0;
@@ -132,7 +133,7 @@ int readfile_ComputeGain(TString filename="C2--4Layer-43--00000.trc",
       hFitWalk2D_sel     ->Fill( trace->EstimateWalk(), extreme_ns );
       nSinglesTraces++;
       if(nExample<100) {
-	hExample[nExample] = (TH1D*) trace->Clone( Form("SelectedFitExample_%d",nExample) );
+	hExample[nExample] = (TH1D*) trace->Clone( Form("SelectedFitExample_%d_%d",nExample,nev) );
 	nExample++;
       }
     }
@@ -175,7 +176,7 @@ int readfile_ComputeGain(TString filename="C2--4Layer-43--00000.trc",
       list->Add( hExample[i] );
   }
   cout << "  Number of examples: " << nExample << endl;
-  list->Write("FitExamples");
+  list->Write("FitExamples",TObject::kSingleKey);
 
   foutroot->Close();
 

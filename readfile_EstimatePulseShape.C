@@ -79,6 +79,14 @@ int readfile_EstimatePulseShape(TString filename="C2--4Layer-45--00000.trc",Int_
   TH2D *hFitBaseline2D_sel  = new TH2D("hFitBaseline2D_sel", "Fit_Baseline;fit mV;trace mV",       100,-5,+5,   100,-5,+5);
   TH2D *hFitAmplitude2D_sel = new TH2D("hFitAmplitude2D_sel","Fit_Amplitude;fit mV;trace_ampl mV", 100,-5,+20,  100,min_mV-baseline,0);
   TH2D *hFitWalk2D_sel      = new TH2D("hFitWalk2D_sel",     "Fit_Walk;fit_walk ns;trace_tmax ns", 100,-10,+10, 100,min_ns,max_ns);
+
+  TH1D *hExample[100];
+  for(int i=0; i!=100; ++i) hExample[i] = NULL;
+
+  TList *list = new TList();
+  list->SetName("FitExamples");
+  list->SetOwner();
+  int nExample = 0;
   
   trace->CreateProfile();
   Int_t nSinglesTraces = 0;
@@ -87,11 +95,12 @@ int readfile_EstimatePulseShape(TString filename="C2--4Layer-45--00000.trc",Int_
     if(nev%500==0)
       cout << "Events read so far: " << nev << endl;
 
-    trace->Subtract( baseline );
-
     trace->ComputePedestal(1,ranges_baseline*bins_per_ns,meanPed,rmsPed);
     hMeanPed->Fill( meanPed );
     hRMSPed->Fill( rmsPed );
+
+    //trace->Subtract( baseline );
+    trace->Subtract( meanPed );
 
     trace->ComputeMin(ranges_gate_low*bins_per_ns,ranges_gate_high*bins_per_ns,extreme_mV,extreme_timebin);
     hMinmV->Fill( extreme_mV );
@@ -99,10 +108,11 @@ int readfile_EstimatePulseShape(TString filename="C2--4Layer-45--00000.trc",Int_
     hMinns->Fill( extreme_ns );
 
     if(nstep>1) {    // STEP2++: FIT PULSE
-      Double_t ampl = 10;
-      Double_t gate = 15;
+      Double_t ampl = 0.5*(ranges_amplitude_high + ranges_amplitude_low);
+      Double_t gate = 5*0.5*(ranges_amplitude_high - ranges_amplitude_low); // fit up to five peaks
       int res = trace->FitTemplate(meanPed,ampl,   0,
-				   2,      gate,  10, nstep);
+				   2,      gate,  10,
+				   20.0,  180.0, "WWRMQ");
       //cout << "*********** " << res << endl;
       Double_t chi2 = trace->GetLastReducedChiSquared();
       hFitChi2_all->Fill( chi2 );
@@ -124,6 +134,10 @@ int readfile_EstimatePulseShape(TString filename="C2--4Layer-45--00000.trc",Int_
 	hFitWalk2D_sel     ->Fill( trace->EstimateWalk(), extreme_ns );
 	trace->FillProfile(); // fill selected
 	nSinglesTraces++;
+	if(nExample<100) {
+	  hExample[nExample] = (TH1D*) trace->Clone( Form("SelectedFitExample_%d_%d",nExample,nev) );
+	  nExample++;
+	}
       }
     } else {
       if( (extreme_mV>ranges_extreme_low) && (extreme_mV<ranges_extreme_high) ) {
@@ -172,6 +186,13 @@ int readfile_EstimatePulseShape(TString filename="C2--4Layer-45--00000.trc",Int_
     hFitBaseline2D_sel->Write();
     hFitAmplitude2D_sel->Write();
     hFitWalk2D_sel->Write();
+
+    for(int i=0; i!=nExample; ++i) {
+      if(hExample[i])
+	list->Add( hExample[i] );
+    }
+    cout << "  Number of examples: " << nExample << endl;
+    list->Write("FitExamples",TObject::kSingleKey);
   }  
   foutroot->Close();
 
