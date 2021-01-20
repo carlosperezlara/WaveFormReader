@@ -19,6 +19,7 @@ class WaveForm : public TH1D {
   // based on template
   void LoadTemplate(TString filename);
   Int_t FitTemplate(Double_t p0, Double_t p1, Double_t p2, Double_t r0, Double_t r1, Double_t r2, Double_t clip=0, TString option="0WWRMQ");
+  Int_t FitTemplate(Double_t p0, Double_t p1, Double_t p2, Double_t r0, Double_t r1, Double_t r2, Double_t fit1=20, Double_t range2=100, TString option="0WWRMQ");
   Double_t EstimateBaseline();
   Double_t EstimateAmplitude();
   Double_t EstimateCharge();
@@ -131,15 +132,13 @@ void WaveForm::LoadTemplate(TString filename) {
 }
 //====================================
 Int_t WaveForm::FitTemplate(Double_t p0, Double_t p1, Double_t p2, // base ampl walk
-			       Double_t r0, Double_t r1, Double_t r2, // windows
-			    Double_t clip, TString option) {
+			    Double_t r0, Double_t r1, Double_t r2, // windows
+			    Double_t minR, Double_t maxR, TString option) {
   fFitted = kTRUE;
   fFit->SetParameters(p0,p1,p2);
   fFit->SetParLimits(0,p0-r0,p0+r0);
   fFit->SetParLimits(1,p1-r1,p1+r1);
   fFit->SetParLimits(2,p2-r2,p2+r2);
-  Double_t minR = GetBinLowEdge( 1 ) + clip;
-  Double_t maxR = GetBinLowEdge( GetNbinsX()+1 ) - clip;
   this->Fit(fFit,option.Data(),"",minR,maxR);
   if( ( fFit->GetParameter(0)-1e-6 < p0-r0 ) ||
       ( fFit->GetParameter(0)+1e-6 > p0+r0 ) ||
@@ -149,6 +148,16 @@ Int_t WaveForm::FitTemplate(Double_t p0, Double_t p1, Double_t p2, // base ampl 
       ( fFit->GetParameter(2)+1e-6 > p2+r2 )  )
     return 1;
   return 0;
+}
+//====================================
+Int_t WaveForm::FitTemplate(Double_t p0, Double_t p1, Double_t p2, // base ampl walk
+			    Double_t r0, Double_t r1, Double_t r2, // windows
+			    Double_t clip, TString option) {
+  Double_t minR = GetBinLowEdge( 1 ) + clip;
+  Double_t maxR = GetBinLowEdge( GetNbinsX()+1 ) - clip;
+  return FitTemplate(p0, p1, p2, // base ampl walk                                                                          
+		     r0, r1, r2, // windows                                                                                 
+		     minR, maxR, option);
 }
 //====================================
 Double_t WaveForm::GetLastReducedChiSquared() {
