@@ -31,15 +31,7 @@ int readfile_EstimatePulseShape(TString filename="C2--4Layer-45--00000.trc",Int_
   cout << "   => RANGES:AMPLITUDE_HIGH " << ranges_amplitude_high << endl;
   cout << "   => RANGES:FIT_MAXCHI2 " << ranges_fit_maxchi2 << endl;
 
-  double baseline=0;
-  if(nstep>0) {    // STEP 1++: REMOVE BASELINE
-    cout << " BASELINE from " << filename.Data() << Form("_step%02d.dat",0) << endl;
-    fin.open( Form("%s_step00.dat",filename.Data()) );
-    fin >> baseline;
-    fin.close();
-  }
-
-  if(nstep>1) {    // STEP2++: FIT PULSE
+  if(nstep>0) {    // STEP1++: FIT PULSE
     cout << " PULSE from " << filename.Data() << Form("_step%02d.dat",nstep-1) << endl;
     trace->LoadTemplate( Form("%s_step%02d.dat",filename.Data(), nstep-1) );
   }
@@ -53,38 +45,79 @@ int readfile_EstimatePulseShape(TString filename="C2--4Layer-45--00000.trc",Int_
   Double_t min_ns = summary->GetXaxis()->GetBinLowEdge( 1 );
   
   Double_t meanPed, rmsPed;
-  TH1D *hMeanPed = new TH1D("hMeanPed","MeanPed;mV",100,min_mV-baseline,max_mV-baseline);
-  TH1D *hRMSPed = new TH1D("hRMSPed","RMSPed;mV",100,0,+15);
-
   Double_t extreme_mV;
   Int_t extreme_timebin;
-  //TH1D *hMinmV = new TH1D("hMinmV","MinmV;mV",1000,min_mV-baseline,max_mV-baseline);
-  TH1D *hMinmV = new TH1D("hMinmV","MinmV;mV",1000,min_mV-baseline,0);
-  TH1D *hMinns = new TH1D("hMinns","MinnS;ns",1000,min_ns,max_ns);
 
-  TH1D *hFitChi2_all  = new TH1D("hFitChi2_all", "Fit_Chi2_all",     1000,0,+30);
-  TH1D *hFitBaseline_all  = new TH1D("hFitBaseline_all", "Fit_Baseline;mV",  100,-5,+5);
-  TH1D *hFitAmplitude_all = new TH1D("hFitAmplitude_all","Fit_Amplitude;mV", 1000,-5,+20);
-  TH1D *hFitWalk_all      = new TH1D("hFitWalk_all",     "Fit_Walk;ns",      1000,-10,+10);
+  TH1D *hMeanPed   = new TH1D("hMeanPed_RAW", "MeanPed_RAW;mV",100,min_mV,max_mV);
+  TH1D *hRMSPed    = new TH1D("hRMSPed_RAW",  "RMSPed_RAW;mV",100,0,+8);
+  
+  TList *lstNoCuts = new TList();
+  TH1D *hMeanCent0 = new TH1D("hMeanCent_SUB","MeanCent_SUB;ns",   100,ranges_gate_low,ranges_gate_high);
+  TH1D *hRMSCent0  = new TH1D("hRMSCent_SUB", "RMSCent_SUB;ns",    100,-18,+18);
+  TH2D *hCent2D0   = new TH2D("hCent2D_SUB",  "MeanCent_SUB;ns;ns",100,ranges_gate_low,ranges_gate_high,100,-18,+18);
+  TH1D *hMinmV0    = new TH1D("hMinmV_SUB",   "MinmV_SUB;mV",      1000,min_mV,0);
+  TH1D *hMinns0    = new TH1D("hMinns_SUB",   "MinnS_RAW;ns",      1000,ranges_gate_low,ranges_gate_high);
+  lstNoCuts->Add( hMinmV0 );
+  lstNoCuts->Add( hMinns0 );
+  lstNoCuts->Add( hMeanCent0 );
+  lstNoCuts->Add( hRMSCent0 );
+  lstNoCuts->Add( hCent2D0 );
+  lstNoCuts->SetOwner();
 
-  TH1D *hFitChi2_sel  = new TH1D("hFitChi2_sel", "Fit_Chi2_sel",     1000,0,+30);
-  TH1D *hFitBaseline_sel  = new TH1D("hFitBaseline_sel", "Fit_Baseline;mV",  100,-5,+5);
-  TH1D *hFitAmplitude_sel = new TH1D("hFitAmplitude_sel","Fit_Amplitude;mV", 1000,-5,+20);
-  TH1D *hFitWalk_sel      = new TH1D("hFitWalk_sel",     "Fit_Walk;ns",      1000,-10,+10);
-
-  TH2D *hFitBaseline2D_all  = new TH2D("hFitBaseline2D_all", "Fit_Baseline;fit mV;trace mV",       100,-5,+5,   100,-5,+5);
-  TH2D *hFitAmplitude2D_all = new TH2D("hFitAmplitude2D_all","Fit_Amplitude;fit mV;trace_ampl mV", 100,-5,+20,  100,min_mV-baseline,0);
-  TH2D *hFitWalk2D_all      = new TH2D("hFitWalk2D_all",     "Fit_Walk;fit_walk ns;trace_tmax ns", 100,-10,+10, 100,min_ns,max_ns);
-
-  TH2D *hFitBaseline2D_sel  = new TH2D("hFitBaseline2D_sel", "Fit_Baseline;fit mV;trace mV",       100,-5,+5,   100,-5,+5);
-  TH2D *hFitAmplitude2D_sel = new TH2D("hFitAmplitude2D_sel","Fit_Amplitude;fit mV;trace_ampl mV", 100,-5,+20,  100,min_mV-baseline,0);
-  TH2D *hFitWalk2D_sel      = new TH2D("hFitWalk2D_sel",     "Fit_Walk;fit_walk ns;trace_tmax ns", 100,-10,+10, 100,min_ns,max_ns);
+  TList *lstCuts = new TList();
+  TH1D *hMeanCent1 = new TH1D("hMeanCent_SUB_CUT","MeanCent_SUB;ns",   100,ranges_gate_low,ranges_gate_high);
+  TH1D *hRMSCent1  = new TH1D("hRMSCent_SUB_CUT", "RMSCent_SUB;ns",    100,-18,+18);
+  TH2D *hCent2D1   = new TH2D("hCent2D_SUB_CUT",  "MeanCent_SUB;ns;ns",100,ranges_gate_low,ranges_gate_high,100,-18,+18);
+  TH1D *hMinmV1    = new TH1D("hMinmV_SUB_CUT",   "MinmV_SUB;mV",      1000,min_mV,0);
+  TH1D *hMinns1    = new TH1D("hMinns_SUB_CUT",   "MinnS_RAW;ns",      1000,ranges_gate_low,ranges_gate_high);
+  lstCuts->Add( hMinmV1 );
+  lstCuts->Add( hMinns1 );
+  lstCuts->Add( hMeanCent1 );
+  lstCuts->Add( hRMSCent1 );
+  lstCuts->Add( hCent2D1 );
+  lstCuts->SetOwner();
+  
+  TList *lstFitNoCuts = new TList();
+  TH1D *hFitChi2_all        = new TH1D("hFitChi2_all",       "Fit_Chi2_all",     1000,0,+30);
+  TH1D *hFitBaseline_all    = new TH1D("hFitBaseline_all",   "Fit_Baseline;mV",  100,-5,+5);
+  TH1D *hFitAmplitude_all   = new TH1D("hFitAmplitude_all",  "Fit_Amplitude;mV", 1000,-5,+20);
+  TH1D *hFitWalk_all        = new TH1D("hFitWalk_all",       "Fit_Walk;ns",      1000,-10,+10);
+  TH2D *hFitBaseline2D_all  = new TH2D("hFitBaseline2D_all", "Fit_Baseline;fit mV;trace_baseline mV", 100,-5,+5,   100,-500,+500);
+  TH2D *hFitAmplitude2D_all = new TH2D("hFitAmplitude2D_all","Fit_Amplitude;fit mV;trace_ampl mV",    100,-5,+20,  100,min_mV,3);
+  TH2D *hFitWalk2D_all      = new TH2D("hFitWalk2D_all",     "Fit_Walk;fit_walk ns;trace_tmax ns",    100,-10,+10, 100,min_ns,max_ns);
+  TH2D *hFitWalk2DC_all     = new TH2D("hFitWalk2DC_all",    "Fit_Walk;fit_walk ns;Fit_Amplitude mV", 100,-10,+10, 100,-5,+20);
+  lstFitNoCuts->Add( hFitChi2_all );
+  lstFitNoCuts->Add( hFitBaseline_all );
+  lstFitNoCuts->Add( hFitAmplitude_all );
+  lstFitNoCuts->Add( hFitWalk_all );
+  lstFitNoCuts->Add( hFitBaseline2D_all );
+  lstFitNoCuts->Add( hFitAmplitude2D_all );
+  lstFitNoCuts->Add( hFitWalk2D_all );
+  lstFitNoCuts->Add( hFitWalk2DC_all );
+  lstFitNoCuts->SetOwner();
+  
+  TList *lstFitCuts = new TList();
+  TH1D *hFitChi2_sel        = new TH1D("hFitChi2_sel",       "Fit_Chi2_sel",     1000,0,+30);
+  TH1D *hFitBaseline_sel    = new TH1D("hFitBaseline_sel",   "Fit_Baseline;mV",  100,-5,+5);
+  TH1D *hFitAmplitude_sel   = new TH1D("hFitAmplitude_sel",  "Fit_Amplitude;mV", 1000,-5,+20);
+  TH1D *hFitWalk_sel        = new TH1D("hFitWalk_sel",       "Fit_Walk;ns",      1000,-10,+10);
+  TH2D *hFitBaseline2D_sel  = new TH2D("hFitBaseline2D_sel", "Fit_Baseline;fit mV;trace_baseline mV", 100,-5,+5,   100,-500,+500);
+  TH2D *hFitAmplitude2D_sel = new TH2D("hFitAmplitude2D_sel","Fit_Amplitude;fit mV;trace_ampl mV",    100,-5,+20,  100,min_mV,0);
+  TH2D *hFitWalk2D_sel      = new TH2D("hFitWalk2D_sel",     "Fit_Walk;fit_walk ns;trace_tmax ns",    100,-10,+10, 100,min_ns,max_ns);
+  TH2D *hFitWalk2DC_sel     = new TH2D("hFitWalk2DC_sel",    "Fit_Walk;fit_walk ns;Fit_Amplitude mV", 100,-10,+10, 100,-5,+20);
+  lstFitCuts->Add( hFitChi2_sel );
+  lstFitCuts->Add( hFitBaseline_sel );
+  lstFitCuts->Add( hFitAmplitude_sel );
+  lstFitCuts->Add( hFitWalk_sel );
+  lstFitCuts->Add( hFitBaseline2D_sel );
+  lstFitCuts->Add( hFitAmplitude2D_sel );
+  lstFitCuts->Add( hFitWalk2D_sel );
+  lstFitCuts->Add( hFitWalk2DC_sel );
+  lstFitCuts->SetOwner();
 
   TH1D *hExample[100];
   for(int i=0; i!=100; ++i) hExample[i] = NULL;
-
   TList *list = new TList();
-  list->SetName("FitExamples");
   list->SetOwner();
   int nExample = 0;
   
@@ -98,21 +131,36 @@ int readfile_EstimatePulseShape(TString filename="C2--4Layer-45--00000.trc",Int_
     trace->ComputePedestal(1,ranges_baseline*bins_per_ns,meanPed,rmsPed);
     hMeanPed->Fill( meanPed );
     hRMSPed->Fill( rmsPed );
-
-    //trace->Subtract( baseline );
     trace->Subtract( meanPed );
-
     trace->ComputeMin(ranges_gate_low*bins_per_ns,ranges_gate_high*bins_per_ns,extreme_mV,extreme_timebin);
-    hMinmV->Fill( extreme_mV );
     Double_t extreme_ns = trace->GetXaxis()->GetBinCenter(extreme_timebin);
-    hMinns->Fill( extreme_ns );
+    Double_t centroid, rmscentroid;
+    trace->ComputeCentroid(ranges_gate_low*bins_per_ns,ranges_gate_high*bins_per_ns,centroid,rmscentroid);
+    hMinmV0->Fill( extreme_mV );
+    hMinns0->Fill( extreme_ns );
+    hMeanCent0->Fill(centroid);
+    hRMSCent0->Fill(rmscentroid);
+    hCent2D0->Fill(centroid,rmscentroid);
 
-    if(nstep>1) {    // STEP2++: FIT PULSE
+    bool passed = true;
+    if(extreme_mV<ranges_extreme_low) passed = false;
+    if(rmscentroid<0.5) passed = false;
+    if(rmscentroid>2.5) passed = false;
+    if(extreme_mV>ranges_extreme_high) passed = false;
+    if(!passed) continue;
+
+    hMinmV1->Fill( extreme_mV );
+    hMinns1->Fill( extreme_ns );
+    hMeanCent1->Fill(centroid);
+    hRMSCent1->Fill(rmscentroid);
+    hCent2D1->Fill(centroid,rmscentroid);
+    
+    if(nstep>0) {    // STEP1++: FIT PULSE
       Double_t ampl = 0.5*(ranges_amplitude_high + ranges_amplitude_low);
       Double_t gate = 5*0.5*(ranges_amplitude_high - ranges_amplitude_low); // fit up to five peaks
-      int res = trace->FitTemplate(meanPed,ampl,   0,
-				   2,      gate,  10,
-				   20.0,  180.0, "WWRMQ");
+      int res = trace->FitTemplate(0,      ampl,   0,
+				   3,      gate,   5,
+				   20.0,  180.0, "WWRMEQ");
       //cout << "*********** " << res << endl;
       Double_t chi2 = trace->GetLastReducedChiSquared();
       hFitChi2_all->Fill( chi2 );
@@ -122,9 +170,20 @@ int readfile_EstimatePulseShape(TString filename="C2--4Layer-45--00000.trc",Int_
       hFitBaseline2D_all ->Fill( trace->EstimateBaseline(), meanPed );
       hFitAmplitude2D_all->Fill( trace->EstimateAmplitude(), extreme_mV );
       hFitWalk2D_all     ->Fill( trace->EstimateWalk(), extreme_ns );
+      hFitWalk2DC_all    ->Fill( trace->EstimateWalk(), trace->EstimateAmplitude() );
 	
       ampl = trace->EstimateAmplitude();
-      if(chi2<ranges_fit_maxchi2 && ampl>ranges_amplitude_low && ampl<ranges_amplitude_high && res==0) {
+      bool pass = true;
+      if(ampl<ranges_amplitude_low) pass = false;
+      if(ampl>ranges_amplitude_high) pass = false;
+      if(fabs(trace->EstimateBaseline()) > 0.5) pass = false;
+      if(chi2>ranges_fit_maxchi2) pass = false;
+      if(fabs(trace->EstimateWalk()) > 0.5 ) pass = false;
+      if(nstep>=2) {
+	if(chi2>ranges_fit_maxchi2/2.0) pass = false;
+      }
+      if(res!=0) pass = false;
+      if(pass) {
 	hFitChi2_sel->Fill( chi2 );
 	hFitBaseline_sel  ->Fill( trace->EstimateBaseline() );
 	hFitAmplitude_sel ->Fill( trace->EstimateAmplitude() );
@@ -132,6 +191,7 @@ int readfile_EstimatePulseShape(TString filename="C2--4Layer-45--00000.trc",Int_
 	hFitBaseline2D_sel ->Fill( trace->EstimateBaseline(), meanPed );
 	hFitAmplitude2D_sel->Fill( trace->EstimateAmplitude(), extreme_mV );
 	hFitWalk2D_sel     ->Fill( trace->EstimateWalk(), extreme_ns );
+	hFitWalk2DC_sel    ->Fill( trace->EstimateWalk(), trace->EstimateAmplitude() );
 	trace->FillProfile(); // fill selected
 	nSinglesTraces++;
 	if(nExample<100) {
@@ -140,60 +200,35 @@ int readfile_EstimatePulseShape(TString filename="C2--4Layer-45--00000.trc",Int_
 	}
       }
     } else {
-      if( (extreme_mV>ranges_extreme_low) && (extreme_mV<ranges_extreme_high) ) {
-	trace->FillProfile(); // fill selected
-	nSinglesTraces++;
-      }
+      trace->FillProfile(); // fill selected
+      nSinglesTraces++;
     }
   }
   cout << " Number of good singles used in profile " << nSinglesTraces << endl;
   new TCanvas();
   trace->DrawCopy();
 
-  hMeanPed->Fit("gaus","I");
-  if(nstep==0) { // STEP 0: SAVING BASELINE
-    ofstream fout( Form("%s_step%02d.dat",filename.Data(),nstep) );
-    fout << Form("%e",((TF1*) hMeanPed->GetListOfFunctions()->At(0))->GetParameter(1)) << endl;
-    fout.close();
+  for(int i=0; i!=nExample; ++i) {
+    if(hExample[i])
+      list->Add( hExample[i] );
   }
+  cout << "  Number of examples: " << nExample << endl;
 
-  if(nstep>0) {
-    cout << " PULSE to " << filename.Data() << Form("_step%02d.dat",nstep) << endl;
-    trace->SaveProfileToTemplate( Form("%s_step%02d.dat",filename.Data(),nstep), int(bins_per_ns*nstep) );
-  }
+  cout << " PULSE to " << filename.Data() << Form("_step%02d.dat",nstep) << endl;
+  trace->SaveProfileToTemplate( Form("%s_step%02d.dat",filename.Data(),nstep), int(bins_per_ns*nstep) );
+
   TFile *foutroot = new TFile( Form("%s_step%02d.root",filename.Data(),nstep), "RECREATE" );
   summary->Write();
   hMeanPed->Write();
   hRMSPed->Write();
-  hMinmV->Write();
-  hMinns->Write();
-  trace->GetProfile()->Write();
-  if(nstep>1) {
-    hFitChi2_all->Write();
-    hFitBaseline_all->Write();
-    hFitAmplitude_all->Write();
-    hFitWalk_all->Write();
-
-    hFitBaseline2D_all->Write();
-    hFitAmplitude2D_all->Write();
-    hFitWalk2D_all->Write();
-
-    hFitChi2_sel->Write();
-    hFitBaseline_sel->Write();
-    hFitAmplitude_sel->Write();
-    hFitWalk_sel->Write();
-
-    hFitBaseline2D_sel->Write();
-    hFitAmplitude2D_sel->Write();
-    hFitWalk2D_sel->Write();
-
-    for(int i=0; i!=nExample; ++i) {
-      if(hExample[i])
-	list->Add( hExample[i] );
-    }
-    cout << "  Number of examples: " << nExample << endl;
+  lstNoCuts->Write("BeforeCuts",TObject::kSingleKey);
+  lstCuts->Write("AfterCuts",TObject::kSingleKey);
+  if(nstep>0) {
+    lstFitNoCuts->Write("BeforeFitCuts",TObject::kSingleKey);
+    lstFitCuts->Write("AfterFitCuts",TObject::kSingleKey);
     list->Write("FitExamples",TObject::kSingleKey);
   }  
+  trace->GetProfile()->Write();
   foutroot->Close();
 
   return 0;

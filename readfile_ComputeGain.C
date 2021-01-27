@@ -32,11 +32,6 @@ int readfile_ComputeGain(TString filename="C2--4Layer-43--00000.trc",
   cout << "   => RANGES:AMPLITUDE_HIGH " << ranges_amplitude_high << endl;
   cout << "   => RANGES:FIT_MAXCHI2 " << ranges_fit_maxchi2 << endl;
 
-  double baseline=0;
-  cout << " BASELINE from " << filename.Data() << Form("_step%02d.dat",0) << endl;
-  fin.open( Form("%s_step00.dat",filename.Data()) );
-  fin >> baseline;
-  fin.close();
   cout << " PULSE from " << pulsefile.Data() << endl;
   trace->LoadTemplate( Form("%s",pulsefile.Data()) );
 
@@ -49,33 +44,33 @@ int readfile_ComputeGain(TString filename="C2--4Layer-43--00000.trc",
   Double_t min_ns = summary->GetXaxis()->GetBinLowEdge( 1 );
   
   Double_t meanPed, rmsPed;
-  TH1D *hMeanPed = new TH1D("hMeanPed","MeanPed;mV",100,min_mV-baseline,max_mV-baseline);
+  TH1D *hMeanPed = new TH1D("hMeanPed","MeanPed;mV",100,min_mV,max_mV);
   TH1D *hRMSPed = new TH1D("hRMSPed","RMSPed;mV",100,0,+15);
 
   Double_t extreme_mV;
   Int_t extreme_timebin;
   //TH1D *hMinmV = new TH1D("hMinmV","MinmV;mV",1000,min_mV-baseline,max_mV-baseline);
-  TH1D *hMinmV = new TH1D("hMinmV","MinmV;mV",1000,min_mV-baseline,0);
+  TH1D *hMinmV = new TH1D("hMinmV","MinmV;mV",1000,min_mV,max_mV);
   TH1D *hMinns = new TH1D("hMinns","MinnS;ns",1000,min_ns,max_ns);
 
-  TH1D *hFitChi2_all      = new TH1D("hFitChi2_all", "Fit_Chi2_all",         1000,0,100);
-  TH1D *hFitBaseline_all  = new TH1D("hFitBaseline_all", "Fit_Baseline;mV",  100,-5,+5);
+  TH1D *hFitChi2_all      = new TH1D("hFitChi2_all", "Fit_Chi2_all",         1000,0,20);
+  TH1D *hFitBaseline_all  = new TH1D("hFitBaseline_all", "Fit_Baseline;mV",  100,min_mV,max_mV);
   TH1D *hFitAmplitude_all = new TH1D("hFitAmplitude_all","Fit_Amplitude;mV", 1000,-5,+20);
   TH1D *hFitWalk_all      = new TH1D("hFitWalk_all",     "Fit_Walk;ns",      1000,-10,+10);
 
-  TH1D *hFitChi2_sel      = new TH1D("hFitChi2_sel", "Fit_Chi2_sel",         1000,0,100);
-  TH1D *hFitBaseline_sel  = new TH1D("hFitBaseline_sel", "Fit_Baseline;mV",  100,-5,+5);
+  TH1D *hFitChi2_sel      = new TH1D("hFitChi2_sel", "Fit_Chi2_sel",         1000,0,20);
+  TH1D *hFitBaseline_sel  = new TH1D("hFitBaseline_sel", "Fit_Baseline;mV",  100,min_mV,max_mV);
   TH1D *hFitAmplitude_sel = new TH1D("hFitAmplitude_sel","Fit_Amplitude;mV", 1000,-5,+20);
   TH1D *hFitWalk_sel      = new TH1D("hFitWalk_sel",     "Fit_Walk;ns",      1000,-10,+10);
 
-  TH2D *hFitBaseline2D_all  = new TH2D("hFitBaseline2D_all", "Fit_Baseline;fit mV;trace mV",       100,-5,+5,   100,-5,+5);
-  TH2D *hFitAmplitude2D_all = new TH2D("hFitAmplitude2D_all","Fit_Amplitude;fit mV;trace_minmV mV",100,-5,+20,  100,min_mV-baseline,0);
-  TH2D *hFitAmplChi2_all    = new TH2D("hFitAmplChi2_all",   "Fit_AmplChi2;mV",                    1000,-5,+20, 100,0,100);
+  TH2D *hFitBaseline2D_all  = new TH2D("hFitBaseline2D_all", "Fit_Baseline;fit mV;trace mV",       100,min_mV,max_mV,100,min_mV,max_mV);
+  TH2D *hFitAmplitude2D_all = new TH2D("hFitAmplitude2D_all","Fit_Amplitude;fit mV;trace_minmV mV",100,-5,+20,  100,min_mV,max_mV);
+  TH2D *hFitAmplChi2_all    = new TH2D("hFitAmplChi2_all",   "Fit_AmplChi2;mV;chi2",               1000,-5,+20, 100,0,20);
   TH2D *hFitWalk2D_all      = new TH2D("hFitWalk2D_all",     "Fit_Walk;fit_walk ns;trace_tmax ns", 100,-10,+10, 100,min_ns,max_ns);
 
-  TH2D *hFitBaseline2D_sel  = new TH2D("hFitBaseline2D_sel", "Fit_Baseline;fit mV;trace mV",       100,-5,+5,   100,-5,+5);
-  TH2D *hFitAmplitude2D_sel = new TH2D("hFitAmplitude2D_sel","Fit_Amplitude;fit mV;trace_minmV mV",100,-5,+20,  100,min_mV-baseline,0);
-  TH2D *hFitAmplChi2_sel    = new TH2D("hFitAmplChi2_sel",   "Fit_AmplChi2;mV",                    1000,-5,+20, 100,0,ranges_fit_maxchi2);
+  TH2D *hFitBaseline2D_sel  = new TH2D("hFitBaseline2D_sel", "Fit_Baseline;fit mV;trace mV",       100,min_mV,max_mV,100,min_mV,max_mV);
+  TH2D *hFitAmplitude2D_sel = new TH2D("hFitAmplitude2D_sel","Fit_Amplitude;fit mV;trace_minmV mV",100,-5,+20,  100,min_mV,max_mV);
+  TH2D *hFitAmplChi2_sel    = new TH2D("hFitAmplChi2_sel",   "Fit_AmplChi2;mV",                    1000,-5,+20, 100,0,20);
   TH2D *hFitWalk2D_sel      = new TH2D("hFitWalk2D_sel",     "Fit_Walk;fit_walk ns;trace_tmax ns", 100,-10,+10, 100,min_ns,max_ns);
 
   TH1D *hExample[100];
@@ -101,15 +96,15 @@ int readfile_ComputeGain(TString filename="C2--4Layer-43--00000.trc",
     Double_t extreme_ns = trace->GetXaxis()->GetBinCenter(extreme_timebin);
     hMinns->Fill( extreme_ns );
 
-    Double_t ampl = abs(extreme_mV - baseline);
-    Double_t gate = 2*ampl;
-    if(ampl<3) gate=5;
+    Double_t ampl = fabs(extreme_mV - meanPed);
+    Double_t gate = 3*ampl;
+    if(ampl<3) gate=6;
     //cout << "  AMPL [" << ampl-gate << " " << ampl << " " << ampl+gate << "]" << endl;
     
     //int res = trace->FitTemplate(meanPed,ampl,   0,
-    int res = trace->FitTemplate(meanPed,ampl,  -5, //trick: baseline set to -5 (instead of 0) to force randomization
-				 3,      gate,  10,
-				 6, "WWRMQ");
+    int res = trace->FitTemplate(meanPed,ampl,  0,
+				 3,      gate,  5,
+				 20,      180, "WWRMEQ");
     //cout << "*********** " << res << endl;
     Double_t chi2 = trace->GetLastReducedChiSquared();
     hFitChi2_all->Fill( chi2 );
@@ -129,7 +124,7 @@ int readfile_ComputeGain(TString filename="C2--4Layer-43--00000.trc",
       hFitWalk_sel       ->Fill( trace->EstimateWalk() );
       hFitBaseline2D_sel ->Fill( trace->EstimateBaseline(), meanPed );
       hFitAmplitude2D_sel->Fill( trace->EstimateAmplitude(), extreme_mV );
-      hFitAmplitude2D_sel->Fill( trace->EstimateAmplitude(), chi2 );
+      hFitAmplChi2_sel   ->Fill( trace->EstimateAmplitude(), chi2 );
       hFitWalk2D_sel     ->Fill( trace->EstimateWalk(), extreme_ns );
       nSinglesTraces++;
       if(nExample<100) {
