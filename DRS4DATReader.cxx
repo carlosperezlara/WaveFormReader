@@ -17,7 +17,7 @@ for buffering several channels at the same time.
 
 class DRS4DATReader : public Reader {
 public:
-  DRS4DATReader(TString,Int_t nsamples=1024);
+  DRS4DATReader(TString,Int_t nsamples=1024,Double_t min=-500,Double_t max=+500);
   ~DRS4DATReader();
   void  ReadHeader();
   bool  ReadEvent();
@@ -27,7 +27,7 @@ private:
   Int_t fNumberOfChannels;
 };
 
-DRS4DATReader::DRS4DATReader(TString filename, Int_t nsamples) : Reader(filename) {
+DRS4DATReader::DRS4DATReader(TString filename, Int_t nsamples, Double_t min, Double_t max) : Reader(filename,min,max) {
   fSamples = nsamples;
   fStart = 0;
   fNumberOfChannels = 0;
@@ -44,11 +44,17 @@ void DRS4DATReader::ReadHeader() {
   Int_t   iTmp;
   //RUN HEADER
   fIFS.read((char*) &c4Tmp, 4);
-  //std::cout << c4Tmp << " | "; // DRSN
+  std::cout << c4Tmp << " | "; // DRSN
   fIFS.read((char*) &c4Tmp, 4);
-  //std::cout << c4Tmp << endl; // TIME
+  std::cout << c4Tmp << endl; // TIME
 
   fNumberOfChannels = 0;
+  Double_t minY = fMinSummaryRange;
+  Double_t maxY = fMaxSummaryRange;
+  if(fMaxSummaryRange<fMinSummaryRange) {
+    minY = -500;
+    maxY = +500;
+  }
   for(;;) {
     int prev = fIFS.tellg();
     fIFS.read((char*) &c2Tmp, 2);
@@ -78,8 +84,12 @@ void DRS4DATReader::ReadHeader() {
       }
       if(fTrace[fNumberOfChannels]) delete fTrace[fNumberOfChannels];
       if(fAll[fNumberOfChannels]) delete fAll[fNumberOfChannels];
-      fTrace[fNumberOfChannels] = new WaveForm(Form("DRS4CH%d",fNumberOfChannels),"DRS4;s;V", fSamples, tch[0], endtime);
-      fAll[fNumberOfChannels] = new TH2D(Form("DRS4SumCH%d",fNumberOfChannels),"DRS4;s;V", 100, tch[0], endtime, 100, -50, +50);
+      fTrace[fNumberOfChannels] = new WaveForm(Form("Trace_CH%d_%s",fNumberOfChannels,fFileName.Data()),
+					       Form("Trace  CH%d  %s;s;V",fNumberOfChannels,fFileName.Data()),
+					       fSamples, tch[0], endtime);
+      fAll[fNumberOfChannels] = new TH2D(Form("Summary_CH%d_%s",fNumberOfChannels,fFileName.Data()),
+					 Form("Summary  CH%d  %s;s;V",fNumberOfChannels,fFileName.Data()),
+					 100, tch[0], endtime, 100, minY, maxY);
       fNumberOfChannels++;
     }
   }

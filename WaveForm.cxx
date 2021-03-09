@@ -1,68 +1,41 @@
-#ifndef __WAVEFORM__
-#define __WAVEFORM__
+#include <iostream>
+#include <fstream>
+
 #include "TH1D.h"
 #include "TProfile.h"
 #include "TString.h"
+#include "TSpline.h"
+#include "TF1.h"
+#include "TMath.h"
+#include "WaveForm.h"
 
-class WaveForm : public TH1D {
- public:
-  WaveForm(TString,TString,Int_t,Double_t,Double_t);
-  ~WaveForm();
-
-  // pasive methods: get info from data but does not modify them
-  void ComputePedestal(Int_t binMin, Int_t binMax, Double_t &mean, Double_t &rms);
-  void ComputeMax(Int_t binMin, Int_t binMax, Double_t &ampl, Int_t &time);
-  void ComputeMin(Int_t binMin, Int_t binMax, Double_t &ampl, Int_t &time);
-  void ComputeCentroid(Int_t binMin, Int_t binMax, Double_t &mean, Double_t &rms);
-  void NonFitted() {fFitted=kFALSE;}
-  
-  // based on template
-  void LoadTemplate(TString filename);
-  Int_t FitTemplate(Double_t p0, Double_t p1, Double_t p2, Double_t r0, Double_t r1, Double_t r2, Double_t clip=0, TString option="0WWRMQ");
-  Int_t FitTemplate(Double_t p0, Double_t p1, Double_t p2, Double_t r0, Double_t r1, Double_t r2, Double_t fit1=20, Double_t range2=100, TString option="0WWRMQ");
-  Double_t EstimateBaseline();
-  Double_t EstimateAmplitude();
-  Double_t EstimateCharge();
-  Double_t EstimateWalk();
-  Double_t GetLastReducedChiSquared();
-  
-  // active methods: modifies data in some way
-  void Subtract(Double_t ped);
-
-  // profiling
-  TProfile* CreateProfile();
-  TProfile* GetProfile() {return fProfile;}
-  void FillProfile();
-  void SaveProfileToTemplate(TString filename, Int_t clip=0);
-  
- private:
-  // helpers
-  void StatY(Int_t binMin, Int_t binMax, Double_t &mean, Double_t &rms);
-  void StatX(Int_t binMin, Int_t binMax, Double_t &mean, Double_t &rms);
-  void LocalExtreme(Int_t binMin, Int_t binMax, Double_t &ampl, Int_t &time, bool FindMax);
-
-  // datamembers
-  TSpline3 *fPulse;
-  TF1 *fFit;
-  Bool_t fFitted;
-  Double_t fTemplate_HeightToCharge;
-  TProfile *fProfile;
-};
-
+//====================================
+TH1D* WaveForm::DelayInvertAndSubtract(Int_t delta) {
+  if(!fTransformed) fTransformed = (TH1D*) this->Clone( Form("%s_DIS",GetName()) );
+  fTransformed->Reset();
+  for(int i=delta; i!=GetNbinsX(); ++i) {
+    fTransformed->SetBinContent(i+1, GetBinContent(i+1)-GetBinContent(i+1-delta) );
+  }
+  return fTransformed;
+}
 //====================================
 WaveForm::WaveForm(TString name, TString title, Int_t bins , Double_t minX, Double_t maxX) :
   TH1D(name,title,bins,minX,maxX),
   fPulse(NULL),
+  fTransformed(NULL),
   fFit(NULL),
   fFitted(kFALSE),
   fTemplate_HeightToCharge(1),
-  fProfile(NULL) {
+  fProfile(NULL),
+  fProfileDFT(NULL) {
 }
 //====================================
 WaveForm::~WaveForm() {
   if(fPulse) delete fPulse;
+  if(fTransformed) delete fTransformed;
   if(fFit) delete fFit;
   if(fProfile) delete fProfile;
+  if(fProfileDFT) delete fProfileDFT;
 }
 //====================================
 TProfile* WaveForm::CreateProfile() {
@@ -85,15 +58,70 @@ void WaveForm::FillProfile() {
   }
 }
 //====================================
+TProfile* WaveForm::CreateProfileDFT() {
+  if(fProfileDFT) return fProfileDFT;
+  Int_t N = GetNbinsX();
+  // turns out that computing DFT is computationaly expensive (who knows!)
+  // and looking into a full map between nsample -> nkths may not be needed
+  // specially when samples are higher than 100 (which is most of the case)
+  // so we reduce the powers we look at by rebining to match 100 or N/2
+  // whichever is smallest.
+  Int_t kbins = TMath::Min( 100, N/2 );
+  Int_t kmax = TMath::Floor(N/kbins/2) * kbins; // making sure each bincenter is INT
+  /*
+  Double_t min = -N/2-0.5;
+  Double_t max = +N/2-1.5;
+  fProfileDFT = new TProfile( Form("%s_pXDFT",GetName()), Form("%s DFT (PX)",GetTitle()), N, min, max );
+  */
+  fProfileDFT = new TProfile( Form("%s_pXDFT",GetName()), Form("%s DFT (PX)",GetTitle()),
+			      kbins, -0.5, kmax-0.5 );
+  Double_t timeWindow = GetBinLowEdge( N+1 ) - GetBinLowEdge(1);
+  for(int i=0; i!=kbins; ++i) {
+   if(i%10==0) fProfileDFT->GetXaxis()->SetBinLabel( i+1, Form("%.2f GHz", fProfileDFT->GetBinCenter(i+1)/timeWindow) );
+  }
+  return fProfileDFT;
+}
+//====================================
+Double_t WaveForm::GetKthSquared(Int_t k) {
+  // Computes the k-th power of the
+  // Discrete Fourier Transform of
+  // the current trace
+  // WARNING: returns the Power Squared
+  // (sqrt is expensive)
+  Int_t N = GetNbinsX();
+  static Double_t TwoPiOverN = TMath::TwoPi()/N;
+  double re = 0;
+  double im = 0;
+  for(int n=0; n!=N; ++n) {
+    double x = GetBinContent( n+1 );
+    re += x*TMath::Cos( TwoPiOverN*k*n );
+    im += x*TMath::Sin( TwoPiOverN*k*n );
+  }
+  return re*re + im*im;
+}
+
+//====================================
+void WaveForm::FillProfileDFT() {
+  if(!fProfileDFT) CreateProfileDFT();
+  // FillProfileDFT with DFT of trace raw data
+  Int_t N = fProfileDFT->GetNbinsX();
+  for(int kb=0; kb!=N; ++kb) {
+    Int_t k = fProfileDFT->GetBinCenter( kb+1 );
+    double pow2 = GetKthSquared( k );
+    //fProfileDFT->Fill( k>N/2?k-N:k, pow2 );
+    fProfileDFT->Fill( k, pow2 );
+  }
+}
+//====================================
 void WaveForm::SaveProfileToTemplate(TString filename, Int_t clip) {
   if(!fProfile) return;
   fProfile->GetXaxis()->SetRange(clip,GetNbinsX()-clip);
   Double_t scale = 1.0/abs(fProfile->GetMinimum());
   std::cout << "WAVEFORM :: SCALE " << scale << std::endl;
-  ofstream fout( filename.Data() );
+  std::ofstream fout( filename.Data() );
   for(Int_t bin = 0+clip; bin<GetNbinsX()-clip; ++bin) {
     
-    fout <<  Form("%e %e", fProfile->GetBinCenter(bin+1), fProfile->GetBinContent(bin+1)*scale ) << endl;
+    fout <<  Form("%e %e", fProfile->GetBinCenter(bin+1), fProfile->GetBinContent(bin+1)*scale ) << std::endl;
   }
   fout.close();
 }
@@ -249,5 +277,40 @@ void WaveForm::LocalExtreme(Int_t binMin, Int_t binMax, Double_t &ampl, Int_t &t
   }
   return;
 }
-
-#endif
+//====================================
+Double_t WaveForm::FindCrossing(Int_t binMin, Int_t binMax, Double_t thr, bool Positive) {
+  Int_t range =	binMax - binMin;
+  if(range<0) {
+    std::cout << "WaveForm::LocalExtreme( bad range )!" << std::endl;
+    return -99998;
+  }
+  int time=0;
+  // first iteration
+  for(int i=binMin; i!=binMax; ++i) {
+    double val = GetBinContent(i);
+    //std::cout << ">> " << i << " << " << val << " " << thr << std::endl;
+    bool accept = false;
+    if(Positive) {
+      accept = (val>thr);
+    } else {
+      accept = (val<thr);
+    }
+    if(accept) {
+      time = i;
+      //std::cout << "FOUND!" << std::endl;
+      break;
+    }
+  }
+  if(time==0) {
+    //std::cout << "****** NOT FOUND!!!!!!!" << Form("[%d,%d] thr %f",binMin,binMax,thr) << std::endl;
+    return -99997; // failed
+  }
+  // second iteration
+  // interpolate
+  double y0 = GetBinContent(time-1);
+  double y1 = GetBinContent(time);
+  double bw = GetBinWidth(time);
+  double dx = (thr-y0)*bw/(y1-y0);
+  Double_t ret = GetBinCenter(time)-0.5*bw+dx;
+  return ret;
+}

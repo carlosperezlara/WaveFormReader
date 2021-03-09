@@ -1,40 +1,18 @@
-#ifndef __VRT_READER__
-#define __VRT_READER__
-
 #include <fstream>
 #include "TString.h"
 #include "TH1D.h"
 #include "TH2D.h"
-#include "WaveForm.cxx"
+#include "Reader.h"
 
-const Int_t kMAXCHANNELS=4;
-
-class Reader {
-public:
-  Reader(TString);
-  ~Reader();
-  virtual void  ReadHeader()=0;
-  virtual bool  ReadEvent()=0;
-  void  ResetReading();
-  WaveForm* GetTrace(Int_t i=0) {return i<kMAXCHANNELS?fTrace[i]:NULL;}
-  TH2D* GetSummaryPlot(Int_t i=0) {return i<kMAXCHANNELS?fAll[i]:NULL;}
-
-protected:
-  TString  fFileName;
-  ifstream fIFS;
-  Int_t    fStart;
-  Int_t    fSamples;
-
-  WaveForm    *fTrace[kMAXCHANNELS];
-  TH2D    *fAll[kMAXCHANNELS];
-};
 //=======
-Reader::Reader(TString filename) {
+Reader::Reader(TString filename,Double_t minmV, Double_t maxmV) {
   fFileName = filename;
   fIFS.close();
   fIFS.open( fFileName.Data() );
   fStart = 0;
   fSamples = 0;
+  fMinSummaryRange = minmV;
+  fMaxSummaryRange = maxmV;
   for(int i=0; i!=kMAXCHANNELS; ++i) {
     fTrace[i] = NULL;
     fAll[i] = NULL;
@@ -52,5 +30,3 @@ Reader::~Reader() {
 void Reader::ResetReading() {
   fIFS.seekg(fStart);
 }
-
-#endif

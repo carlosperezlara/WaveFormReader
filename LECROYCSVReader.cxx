@@ -21,7 +21,7 @@ for each object. 4) Voila
 
 class LECROYCSVReader : public Reader {
 public:
-  LECROYCSVReader(TString);
+  LECROYCSVReader(TString, Double_t min=+1, Double_t max=-1);
   ~LECROYCSVReader();
   void  ReadHeader();
   bool  ReadEvent();
@@ -30,7 +30,7 @@ private:
   Int_t    fNumberOfEvents;
 };
 
-LECROYCSVReader::LECROYCSVReader(TString filename) : Reader(filename) {
+LECROYCSVReader::LECROYCSVReader(TString filename, Double_t min, Double_t max) : Reader(filename,min,max) {
   fNumberOfEvents = 0;
 }
 //=======
@@ -65,10 +65,18 @@ void LECROYCSVReader::ReadHeader() {
   lineLast  = ((TObjString*) lineLast.Tokenize("'")->At(0))->GetString();
   double minX = lineFirst.Atof()*1e9;
   double maxX = lineLast.Atof()*1e9;
+  double minY = fMinSummaryRange;
+  double minY = fMaxSummaryRange;
+  if(fMinSummaryRange>fMaxSummaryRange) {
+    minY = -500;
+    maxY = +500;
+  }
   if(fTrace[0]) delete fTrace[0];
   if(fAll[0]) delete fAll[0];
-  fTrace[0] = new WaveForm("LECROYCH","LECROY;ns;mV", fSamples, minX, maxX );
-  fAll[0] = new TH2D("LECROYSumCH","LECROY;ns;mV",100,minX,maxX, 100, -50, 50);
+  fTrace[0] = new WaveForm(Form("fTrace0_%s",fFileName.Data()),
+			   Form("Trace0  %s;ns;mV",fFileName.Data()), fSamples, minX, maxX );
+  fAll[0] = new TH2D(Form("fSummary_%s",fFileName.Data()),
+		     Form("Summary0  %s;ns;mV",fFileName.Data()), 100,minX,maxX, 100, minY, maxY);
   ResetReading();
   cout << "NumberOfEvents " << fNumberOfEvents << endl;
 }
